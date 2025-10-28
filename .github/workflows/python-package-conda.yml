@@ -1,0 +1,38 @@
+name: Telegram to WeChat
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"  # 每5分钟执行一次
+  workflow_dispatch:        # 手动触发
+  push:
+    branches:
+      - main
+
+jobs:
+  forward:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fetch Telegram updates and forward
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          SERVER_KEY: ${{ secrets.SERVER_KEY }}
+        run: |
+          echo "获取 Telegram 消息..."
+          UPDATES=$(curl -s "https://api.telegram.org/bot${TG_BOT_TOKEN}/getUpdates")
+
+          # 提取最新一条消息文本
+          MESSAGE=$(echo "$UPDATES" | jq -r '.result[-1].message.text // empty')
+
+          if [ -n "$MESSAGE" ]; then
+            echo "转发到方糖：$MESSAGE"
+            curl -s "https://sctapi.ftqq.com/${SERVER_KEY}.send" \
+              -d "title=来自Telegram的新消息" \
+              -d "desp=${MESSAGE}"
+          else
+            echo "暂无新消息"
+          fi
